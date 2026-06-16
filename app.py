@@ -45,6 +45,27 @@ async def tefas_fiyat(fon: str):
 async def kok():
     return Response("ok", media_type="text/plain")
 
+@app.get("/ham")
+async def ham(fon: str = Query(...)):
+    import json
+    fon = fon.upper()
+    sayfa_url = f"https://www.tefas.gov.tr/tr/fon-detayli-analiz/{fon}"
+    api_url = "https://www.tefas.gov.tr/api/funds/fonFiyatBilgiGetir"
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(args=["--no-sandbox", "--disable-blink-features=AutomationControlled"])
+        ctx = await browser.new_context(user_agent=UA, locale="tr-TR")
+        page = await ctx.new_page()
+        try:
+            await page.goto(sayfa_url, wait_until="domcontentloaded", timeout=45000)
+            await page.wait_for_timeout(4000)
+            resp = await page.request.post(api_url, data={"fonKodu": fon, "dil": "TR", "periyod": 1},
+                                           headers={"Referer": sayfa_url, "Origin": "https://www.tefas.gov.tr"})
+            data = await resp.json()
+        finally:
+            await browser.close()
+    son = (data.get("resultList") or [{}])[-1]
+    return Response(json.dumps(son, ensure_ascii=False, indent=2), media_type="application/json")
+
 @app.get("/fiyat")
 async def fiyat(fon: str = Query(...), format: str = "plain"):
     fon = fon.upper()
