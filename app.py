@@ -61,10 +61,10 @@ async def ham(fon: str = Query(...)):
             resp = await page.request.post(api_url, data={"fonKodu": fon, "dil": "TR", "periyod": 5},
                                            headers={"Referer": sayfa_url, "Origin": "https://www.tefas.gov.tr"})
             data = await resp.json()
+            arr = data.get("resultList") or []
+            return Response(json.dumps(arr[-3:], ensure_ascii=False, indent=2), media_type="application/json")
         finally:
             await browser.close()
-    arr = data.get("resultList") or []
-    return Response(json.dumps(arr[-3:], ensure_ascii=False, indent=2), media_type="application/json")
     
 @app.get("/fiyat")
 async def fiyat(fon: str = Query(...), format: str = "plain"):
