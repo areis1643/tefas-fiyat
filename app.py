@@ -15,10 +15,11 @@ async def tefas_fiyat(fon: str):
         browser = await p.chromium.launch(args=["--no-sandbox"])
         page = await browser.new_page()
         try:
-            await page.goto(url, wait_until="domcontentloaded", timeout=45000)
-            resp = await page.wait_for_response(
+            async with page.expect_response(
                 lambda r: "fonFiyatBilgiGetir" in r.url, timeout=45000
-            )
+            ) as resp_info:
+                await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            resp = await resp_info.value
             data = await resp.json()
         finally:
             await browser.close()
