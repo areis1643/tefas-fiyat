@@ -65,7 +65,32 @@ async def ham(fon: str = Query(...)):
             return Response(json.dumps(arr[-3:], ensure_ascii=False, indent=2), media_type="application/json")
         finally:
             await browser.close()
-    
+
+@app.get("/getiri")
+async def getiri(fon: str = Query(...)):
+    fon = fon.upper()
+    sayfa_url = f"https://www.tefas.gov.tr/tr/fon-detayli-analiz/{fon}"
+    api_url = "https://www.tefas.gov.tr/api/funds/fonFiyatBilgiGetir"
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(args=["--no-sandbox", "--disable-blink-features=AutomationControlled"])
+        ctx = await browser.new_context(user_agent=UA, locale="tr-TR")
+        page = await ctx.new_page()
+        try:
+            await page.goto(sayfa_url, wait_until="domcontentloaded", timeout=45000)
+            await page.wait_for_timeout(4000)
+            resp = await page.request.post(api_url, data={"fonKodu": fon, "dil": "TR", "periyod": 12},
+                                           headers={"Referer": sayfa_url, "Origin": "https://www.tefas.gov.tr"})
+            data = await resp.json()
+            arr = data.get("resultList") or []
+            if len(arr) < 2:
+                raise HTTPException(502, "Getiri icin yeterli veri yok")
+            bugun = float(arr[-1]["fiyat"])
+            dun = float(arr[-2]["fiyat"])
+            yuzde = (bugun / dun - 1) * 100
+            return Response(f"{yuzde:.2f}", media_type="text/csv")
+        finally:
+            await browser.close()
+
 @app.get("/fiyat")
 async def fiyat(fon: str = Query(...), format: str = "plain"):
     fon = fon.upper()
