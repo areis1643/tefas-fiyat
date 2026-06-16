@@ -58,14 +58,14 @@ async def ham(fon: str = Query(...)):
         try:
             await page.goto(sayfa_url, wait_until="domcontentloaded", timeout=45000)
             await page.wait_for_timeout(4000)
-            resp = await page.request.post(api_url, data={"fonKodu": fon, "dil": "TR", "periyod": 1},
+            resp = await page.request.post(api_url, data={"fonKodu": fon, "dil": "TR", "periyod": 5},
                                            headers={"Referer": sayfa_url, "Origin": "https://www.tefas.gov.tr"})
             data = await resp.json()
         finally:
             await browser.close()
-    son = (data.get("resultList") or [{}])[-1]
-    return Response(json.dumps(son, ensure_ascii=False, indent=2), media_type="application/json")
-
+    arr = data.get("resultList") or []
+    return Response(json.dumps(arr[-3:], ensure_ascii=False, indent=2), media_type="application/json")
+    
 @app.get("/fiyat")
 async def fiyat(fon: str = Query(...), format: str = "plain"):
     fon = fon.upper()
