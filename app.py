@@ -10,23 +10,19 @@ _lock = asyncio.Lock()
 async def tefas_fiyat(fon: str):
     fon = fon.upper()
     url = f"https://www.tefas.gov.tr/tr/fon-detayli-analiz/{fon}"
-    captured = {}
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(args=["--no-sandbox"])
         page = await browser.new_page()
+        try:
+            await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            resp = await page.wait_for_response(
+                lambda r: "fonFiyatBilgiGetir" in r.url, timeout=45000
+            )
+            data = await resp.json()
+        finally:
+            await browser.close()
 
-        async def on_response(resp):
-            if "fonFiyatBilgiGetir" in resp.url:
-                try: captured["data"] = await resp.json()
-                except Exception: pass
-
-        page.on("response", on_response)
-        await page.goto(url, wait_until="networkidle", timeout=60000)
-        await page.wait_for_timeout(1500)
-        await browser.close()
-
-    data = captured.get("data")
     if not data or not data.get("resultList"):
         raise HTTPException(502, "TEFAS verisi alinamadi")
 
@@ -35,6 +31,10 @@ async def tefas_fiyat(fon: str):
     if fiyat is None:
         raise HTTPException(502, f"Fiyat alani yok: {son}")
     return float(fiyat)
+
+@app.get("/")
+async def kok():
+    return Response("ok", media_type="text/plain")
 
 @app.get("/fiyat")
 async def fiyat(fon: str = Query(...), format: str = "plain"):
