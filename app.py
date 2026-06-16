@@ -7,25 +7,33 @@ CACHE_TTL = 3600
 _cache = {}
 _lock = asyncio.Lock()
 
+UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+      "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+
 async def tefas_fiyat(fon: str):
     fon = fon.upper()
-    url = f"https://www.tefas.gov.tr/tr/fon-detayli-analiz/{fon}"
+    sayfa_url = f"https://www.tefas.gov.tr/tr/fon-detayli-analiz/{fon}"
+    api_url = "https://www.tefas.gov.tr/api/funds/fonFiyatBilgiGetir"
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(args=["--no-sandbox"])
-        page = await browser.new_page()
+        browser = await p.chromium.launch(args=["--no-sandbox", "--disable-blink-features=AutomationControlled"])
+        ctx = await browser.new_context(user_agent=UA, locale="tr-TR")
+        page = await ctx.new_page()
         try:
-            async with page.expect_response(
-                lambda r: "fonFiyatBilgiGetir" in r.url, timeout=45000
-            ) as resp_info:
-                await page.goto(url, wait_until="domcontentloaded", timeout=45000)
-            resp = await resp_info.value
+            # Sayfayı aç ki WAF cookie + token tarayıcıya yerlessin
+            await page.goto(sayfa_url, wait_until="domcontentloaded", timeout=45000)
+            await page.wait_for_timeout(4000)
+
+            # Istegi tarayicinin kendi context'inden biz atiyoruz
+            resp = await page.request.post(api_url, data={
+                "fonKodu": fon, "dil": "TR", "periyod": 12
+            }, headers={"Referer": sayfa_url, "Origin": "https://www.tefas.gov.tr"})
             data = await resp.json()
         finally:
             await browser.close()
 
     if not data or not data.get("resultList"):
-        raise HTTPException(502, "TEFAS verisi alinamadi")
+        raise HTTPException(502, f"TEFAS verisi bos: {data}")
 
     son = data["resultList"][-1]
     fiyat = son.get("fiyat") or son.get("FIYAT") or son.get("price")
