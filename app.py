@@ -58,7 +58,7 @@ async def ham(fon: str = Query(...)):
         try:
             await page.goto(sayfa_url, wait_until="domcontentloaded", timeout=45000)
             await page.wait_for_timeout(4000)
-            resp = await page.request.post(api_url, data={"fonKodu": fon, "dil": "TR", "periyod": 5},
+            resp = await page.request.post(api_url, data={"fonKodu": fon, "dil": "TR", "periyod": 12},
                                            headers={"Referer": sayfa_url, "Origin": "https://www.tefas.gov.tr"})
             data = await resp.json()
             arr = data.get("resultList") or []
