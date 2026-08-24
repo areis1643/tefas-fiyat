@@ -226,11 +226,26 @@ async def elle_topla():
     return {"fon_sayisi": len(_depo), "depo_tarihi": _depo_tarihi()}
 
 
+MIKRO = 1_000_000
+
+
 def _bicimle(deger: float, format: str) -> str:
-    # Türkçe yerelli Google Sheets, "0.985506" metnindeki noktayı ondalık
-    # ayırıcı saymayıp sayıyı 985506 olarak okuyor. format=tr virgüllü
-    # döndürerek bunu kaynağında çözüyor; tabloda SUBSTITUTE'e gerek kalmıyor.
-    return f"{deger}".replace(".", ",") if format == "tr" else str(deger)
+    """Google Sheets için ondalık ayırıcı sorunu olmayan biçim.
+
+    IMPORTDATA gelen metni CSV olarak ayrıştırıyor: virgül sütun ayırıcı
+    sayıldığı için "0,985506" iki hücreye bölünüyor ve yan sütunu eziyor.
+    Nokta da işe yaramıyor; Türkçe yerelde "0.985506" 985506 olarak okunuyor.
+
+    format=mikro fiyatı 1e6 ile çarpıp TAM SAYI döndürerek ikisini de aşıyor:
+    ondalık ayırıcı hiç bulunmadığı için yerel ayarın etkisi kalmıyor. Tablo
+    tarafında /1000000 ile geri ölçekleniyor ve her basamak sayısında doğru
+    çalışıyor (AKU 985506 -> 0,985506; KTM 22781000 -> 22,781).
+    """
+    if format == "mikro":
+        return str(round(deger * MIKRO))
+    if format == "tr":
+        return f"{deger}".replace(".", ",")
+    return str(deger)
 
 
 @app.get("/fiyat")
