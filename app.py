@@ -226,25 +226,35 @@ async def elle_topla():
     return {"fon_sayisi": len(_depo), "depo_tarihi": _depo_tarihi()}
 
 
+def _bicimle(deger: float, format: str) -> str:
+    # Türkçe yerelli Google Sheets, "0.985506" metnindeki noktayı ondalık
+    # ayırıcı saymayıp sayıyı 985506 olarak okuyor. format=tr virgüllü
+    # döndürerek bunu kaynağında çözüyor; tabloda SUBSTITUTE'e gerek kalmıyor.
+    return f"{deger}".replace(".", ",") if format == "tr" else str(deger)
+
+
 @app.get("/fiyat")
 async def fiyat(fon: str = Query(...), format: str = "plain"):
     kayitlar = _kayitlar(fon)
     return Response(
-        str(kayitlar[-1]["fiyat"]),
-        media_type="text/csv" if format == "csv" else "text/plain",
+        _bicimle(kayitlar[-1]["fiyat"], format),
+        media_type="text/plain" if format == "plain" else "text/csv",
         headers=_yas_basligi(),
     )
 
 
 @app.get("/getiri")
-async def getiri(fon: str = Query(...)):
+async def getiri(fon: str = Query(...), format: str = "plain"):
     kayitlar = _kayitlar(fon)
     if len(kayitlar) < 2:
         raise HTTPException(502, "Getiri icin yeterli veri yok")
     bugun = kayitlar[-1]["fiyat"]
     onceki = kayitlar[-2]["fiyat"]
+    yuzde = f"{(bugun / onceki - 1) * 100:.2f}"
     return Response(
-        f"{(bugun / onceki - 1) * 100:.2f}", media_type="text/csv", headers=_yas_basligi()
+        yuzde.replace(".", ",") if format == "tr" else yuzde,
+        media_type="text/csv",
+        headers=_yas_basligi(),
     )
 
 
