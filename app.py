@@ -273,6 +273,39 @@ async def getiri(fon: str = Query(...), format: str = "plain"):
     )
 
 
+@app.get("/coklu")
+async def coklu(fonlar: str = Query(..., description="virgulle ayrilmis fon kodlari")):
+    """Birden çok fonu tek JSON'da döndürür (Apps Script gibi tüketiciler için).
+
+    Değerler JSON sayısı olarak gider; ondalık ayırıcı / CSV ayrıştırma sorunu
+    yaşayan IMPORTDATA yolunun aksine tüketici doğrudan sayıyı alır.
+    """
+    if not _depo:
+        raise HTTPException(503, f"Depo hazir degil. Son hata: {_son_hata}")
+
+    sonuc = {}
+    for ham_kod in fonlar.split(","):
+        kod = ham_kod.strip().upper()
+        if not kod:
+            continue
+        kayitlar = _depo.get(kod)
+        if not kayitlar:
+            sonuc[kod] = {"bulundu": False}
+            continue
+        son = kayitlar[-1]
+        getiri = None
+        if len(kayitlar) >= 2 and kayitlar[-2]["fiyat"]:
+            getiri = round((son["fiyat"] / kayitlar[-2]["fiyat"] - 1) * 100, 2)
+        sonuc[kod] = {
+            "bulundu": True,
+            "fiyat": son["fiyat"],
+            "tarih": son["tarih"],
+            "unvan": son.get("fonUnvan"),
+            "gunluk_getiri": getiri,
+        }
+    return {"veri_tarihi": _depo_tarihi(), "fonlar": sonuc}
+
+
 @app.get("/ham")
 async def ham(fon: str = Query(...)):
     # finansal-operasyon-sistemi bu uç noktayı kullanıyor ve parseTefasResponse
